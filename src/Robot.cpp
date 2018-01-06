@@ -36,7 +36,7 @@ class Robot: public frc::IterativeRobot {
 	Encoder EncoderRight;
 
 	float OutputX, OutputY;
-
+	DigitalInput DiIn8, DiIn9;
 
 
 	// create pdp variable
@@ -44,10 +44,10 @@ class Robot: public frc::IterativeRobot {
 
 //Solenoid's declared
 	Solenoid *driveSolenoid = new Solenoid(0);
-	Solenoid *GearOut = new Solenoid(1);
-	Solenoid *FloorIntakeArm = new Solenoid(2);
-	Solenoid *GearIn = new Solenoid(3);
-	Solenoid *GearDeflector = new Solenoid(4);
+	Solenoid *XYbutton = new Solenoid(4);
+	Solenoid *Bbutton = new Solenoid(3);
+	Solenoid *Abutton = new Solenoid(2);
+	Solenoid *IntakeButton = new Solenoid(1);
 
 
 
@@ -56,7 +56,9 @@ class Robot: public frc::IterativeRobot {
 	bool driveButtonYPrev = false;
 	bool operatorRightTriggerPrev = false;
 	bool intakeDeployed = false;
+	bool XYDeployed = false;
 	bool shooterOn = false;
+
 
 public:
 	Robot() :
@@ -64,7 +66,7 @@ public:
 					0), DriveLeft1(1), DriveLeft2(2), DriveRight0(3), DriveRight1(
 					4), DriveRight2(5), Dpad1(8), Dpad2(9), RightStick1(6), RightStick2(
 					7), EncoderLeft(0, 1), EncoderRight(2, 3), OutputX(0), OutputY(
-					0) {
+					0), DiIn8(8), DiIn9(9)  {
 
 	}
 
@@ -121,11 +123,13 @@ private:
 	void TeleopPeriodic() {
 		double Deadband = 0.11;
 		double DPadSpeed = 1.0;
+		bool RightStickLimit1 = DiIn8.Get();
+		bool RightStickLimit2 = DiIn9.Get();
 
 		//high gear & low gear controls
-		if (Drivestick.GetRawButton(6))
-			driveSolenoid->Set(true);			// High gear press LH bumper
 		if (Drivestick.GetRawButton(5))
+			driveSolenoid->Set(true);			// High gear press LH bumper
+		if (Drivestick.GetRawButton(6))
 			driveSolenoid->Set(false);			// Low gear press RH bumper
 
 		//  Rumble code
@@ -176,28 +180,33 @@ private:
 		 * MANIP CODE
 		 */
 
-		//B Button to get and X button release the gear
-		GearIn->Set(OperatorStick.GetRawButton(2));
+		//A Button to extend (Solenoid On)
+		Abutton->Set(OperatorStick.GetRawButton(1));
 
-		//if X button release gear
-		GearOut->Set(OperatorStick.GetRawButton(3));
+		//B Button to extend (Solenoid On)
+		Bbutton->Set(OperatorStick.GetRawButton(2));
 
-		//if X button pressed, retract intake
-		if (OperatorStick.GetRawButton(3)) {
-			intakeDeployed = false;
-			FloorIntakeArm->Set(intakeDeployed);
-		}
-
-		//else LH Bumper - Deploy Intake
-		else if (OperatorStick.GetRawButton(5)) {
+		//if Left Bumper button pressed, extend (Solenoid On)
+		if (OperatorStick.GetRawButton(5)) {
 			intakeDeployed = true;
-			FloorIntakeArm->Set(intakeDeployed);
+			IntakeButton->Set(intakeDeployed);
 		}
 
-		// RH Bumper - Retract Intake
-		if (OperatorStick.GetRawButton(6)) {
+		//else Right Bumper pressed, retract (Solenoid Off)
+		else if (OperatorStick.GetRawButton(6)) {
 			intakeDeployed = false;
-			FloorIntakeArm->Set(intakeDeployed);
+			IntakeButton->Set(intakeDeployed);
+		}
+	//if 'X' button pressed, extend (Solenoid On)
+		if (OperatorStick.GetRawButton(3)) {
+			XYDeployed = true;
+			XYbutton->Set(XYDeployed);
+		}
+
+		//else 'Y' button pressed, retract (Solenoid Off)
+		else if (OperatorStick.GetRawButton(4)) {
+			XYDeployed = false;
+			XYbutton->Set(XYDeployed);
 		}
 
 		//dpad POV stuff
@@ -213,16 +222,24 @@ private:
 			Dpad2.Set(0.0);
 		}
 
-		double RightSpeed = OperatorStick.GetRawAxis(4) * -1; // get Xaxis value (turn)
+		double RightSpeed = OperatorStick.GetRawAxis(4) * -1; // get Xaxis value for Right Joystick
 
 		if (fabs(RightSpeed) < Deadband){
 					RightSpeed = 0.0;
 		}
-		if (OperatorStick.GetRawAxis(2) > 0.5) {
-			RightSpeed = 1.0;
-		} else if (OperatorStick.GetRawAxis(3) > 0.5) {
-			RightSpeed = -1.0;
-		}
+		else if (RightSpeed > Deadband and !RightStickLimit1)
+			RightSpeed = 0.0;
+		else if (RightSpeed < Deadband and !RightStickLimit2)
+			RightSpeed = 0.0;
+
+	//	if (OperatorStick.GetRawAxis(2) > 0.5) {
+	//		RightSpeed = 1.0;
+	//	} else if (OperatorStick.GetRawAxis(3) > 0.5) {
+	//		RightSpeed = -1.0;
+	//	}
+	//	else if (OperatorStick.GetRawAxis(4) < Deadband)
+	//		RightSpeed = 0.0;
+
 		RightStick1.Set(RightSpeed);
 		RightStick2.Set(RightSpeed);
 
